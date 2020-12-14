@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"log"
 	"net/http"
 	"os"
@@ -19,37 +18,35 @@ type Item struct {
 	ConnectionID string
 }
 
-// Response - will export to lib soon
+// Response - for readability
 type Response = events.APIGatewayProxyResponse
 
 func main() {
 	lambda.Start(handler)
 }
 
-func handler(_ context.Context, req *events.APIGatewayWebsocketProxyRequest) (Response, error) {
+func handler(req events.APIGatewayWebsocketProxyRequest) (Response, error) {
 	// Log execution
 	log.Printf("Processing Lambda request %s\n", req.RequestContext.RequestID)
 	log.Printf("Processing Lambda request %s\n", req.RequestContext.ConnectionID)
 
-	// Initialize a session that the SDK will use to load
-	// credentials from the shared credentials file ~/.aws/credentials
-	// and region from the shared configuration file ~/.aws/config.
+	// Initialize session using ~/.aws/credentials & ~/.aws/config.
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
 		SharedConfigState: session.SharedConfigEnable,
 	}))
 
+	// Register the DDB client
 	svc := dynamodb.New(sess)
 
-	item := Item{
-		ConnectionID: req.RequestContext.ConnectionID,
-	}
-
+	// Construct the `ConnectionID` storage item
+	item := Item{ConnectionID: req.RequestContext.ConnectionID}
 	av, err := dynamodbattribute.MarshalMap(item)
 	if err != nil {
 		log.Fatalf("Error processing connection id: %v", err)
 		return Response{StatusCode: http.StatusInternalServerError}, err
 	}
 
+	// Construct the `PutItemInput`
 	table := os.Getenv("TABLE_NAME")
 	input := &dynamodb.PutItemInput{
 		Item:      av,
