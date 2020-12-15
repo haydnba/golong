@@ -13,8 +13,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 )
 
-// Item - DDB item type
-type Item struct {
+// Key - DDB key type
+type Key struct {
 	ConnectionID string
 }
 
@@ -27,7 +27,7 @@ func main() {
 
 func handler(req events.APIGatewayWebsocketProxyRequest) (Response, error) {
 	// Log execution
-	log.Print("Processing wsapi client connection")
+	log.Print("Processing wsapi client disconnect")
 	log.Printf("Request ID: %s\n", req.RequestContext.RequestID)
 	log.Printf("Connection ID: %s\n", req.RequestContext.ConnectionID)
 
@@ -39,22 +39,22 @@ func handler(req events.APIGatewayWebsocketProxyRequest) (Response, error) {
 	// Register the DDB client
 	svc := dynamodb.New(sess)
 
-	// Construct the `ConnectionID` storage item
-	item := Item{ConnectionID: req.RequestContext.ConnectionID}
-	av, err := dynamodbattribute.MarshalMap(item)
+	// Construct the `ConnectionID` storage key
+	key := Key{ConnectionID: req.RequestContext.ConnectionID}
+	av, err := dynamodbattribute.MarshalMap(key)
 	if err != nil {
 		log.Fatalf("Error processing connection id: %v", err)
 		return Response{StatusCode: http.StatusInternalServerError}, err
 	}
 
-	// Construct the `PutItem` input
+	// Construct the `PutItemInput`
 	table := os.Getenv("TABLE_NAME")
-	input := &dynamodb.PutItemInput{
-		Item:      av,
+	input := &dynamodb.DeleteItemInput{
+		Key:       av,
 		TableName: aws.String(table),
 	}
 
-	_, err = svc.PutItem(input)
+	_, err = svc.DeleteItem(input)
 	if err != nil {
 		log.Fatalf("Error storing connection id: %v", err)
 		return Response{StatusCode: http.StatusInternalServerError}, err
